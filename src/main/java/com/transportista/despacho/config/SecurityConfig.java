@@ -5,8 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -19,17 +18,21 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/guias/*/descargar")
                         .access((authentication, context) -> {
-                            var jwt = ((org.springframework.security.oauth2.jwt.Jwt) ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) authentication
-                                    .get()).getToken());
-                            String rol = jwt.getClaimAsString("extension_RolConsulta");
+                            var auth2 = authentication.get();
+                            if (!(auth2 instanceof JwtAuthenticationToken jwtAuth)) {
+                                return new org.springframework.security.authorization.AuthorizationDecision(false);
+                            }
+                            String rol = jwtAuth.getToken().getClaimAsString("extension_RolConsulta");
                             return new org.springframework.security.authorization.AuthorizationDecision(
                                     "true".equals(rol));
                         })
                         .anyRequest()
                         .access((authentication, context) -> {
-                            var jwt = ((org.springframework.security.oauth2.jwt.Jwt) ((org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken) authentication
-                                    .get()).getToken());
-                            String rol = jwt.getClaimAsString("extension_RolAdmin");
+                            var auth2 = authentication.get();
+                            if (!(auth2 instanceof JwtAuthenticationToken jwtAuth)) {
+                                return new org.springframework.security.authorization.AuthorizationDecision(false);
+                            }
+                            String rol = jwtAuth.getToken().getClaimAsString("extension_RolAdmin");
                             return new org.springframework.security.authorization.AuthorizationDecision(
                                     "true".equals(rol));
                         }))
