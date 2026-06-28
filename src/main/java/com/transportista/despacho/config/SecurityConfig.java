@@ -16,7 +16,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/guias/*/descargar")
+                        .requestMatchers(HttpMethod.GET, "/guias/{id}/descargar")
                         .access((authentication, context) -> {
                             var auth2 = authentication.get();
                             if (!(auth2 instanceof JwtAuthenticationToken jwtAuth)) {
