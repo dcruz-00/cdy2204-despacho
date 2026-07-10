@@ -14,7 +14,7 @@ services:
       - despacho-net
 
   despacho-app:
-    build: .
+    image: dcruzv/cdy2204-despacho:latest
     container_name: despacho-app
     ports:
       - "8081:8080"
