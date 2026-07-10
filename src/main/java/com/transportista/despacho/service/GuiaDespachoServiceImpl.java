@@ -1,12 +1,5 @@
 package com.transportista.despacho.service;
 
-import com.transportista.despacho.model.GuiaDespacho;
-import com.transportista.despacho.repository.GuiaDespachoRepository;
-import com.transportista.despacho.repository.S3Repository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,18 +8,36 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.transportista.despacho.config.RabbitConfig;
+import com.transportista.despacho.dto.GuiaMensajeDTO;
+import com.transportista.despacho.model.GuiaDespacho;
+import com.transportista.despacho.repository.GuiaDespachoRepository;
+import com.transportista.despacho.repository.S3Repository;
+
 @Service
 public class GuiaDespachoServiceImpl implements GuiaDespachoService {
 
+    private static final Logger log = LoggerFactory.getLogger(GuiaDespachoServiceImpl.class);
+
     private final GuiaDespachoRepository guiaRepo;
     private final S3Repository s3Repository;
+    private final RabbitTemplate rabbitTemplate;
 
     private static final String EFS_BASE_PATH = "/app/efs/";
 
     @Autowired
-    public GuiaDespachoServiceImpl(GuiaDespachoRepository guiaRepo, S3Repository s3Repository) {
+    public GuiaDespachoServiceImpl(GuiaDespachoRepository guiaRepo, S3Repository s3Repository,
+            RabbitTemplate rabbitTemplate) {
         this.guiaRepo = guiaRepo;
         this.s3Repository = s3Repository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -50,7 +61,34 @@ public class GuiaDespachoServiceImpl implements GuiaDespachoService {
         guia.setEstado("CREADA");
         guia.setRutaEfs(rutaEfs);
 
-        return guiaRepo.save(guia);
+        guia = guiaRepo.save(guia);
+
+        publicarGuiaEnCola(guia);
+
+        return guia;
+    }
+
+    private void publicarGuiaEnCola(GuiaDespacho guia) {
+        GuiaMensajeDTO mensaje = new GuiaMensajeDTO(
+                guia.getId(),
+                guia.getNumeroGuia(),
+                guia.getTransportista(),
+                guia.getFechaCreacion(),
+                guia.getEstado());
+        try {
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.EXCHANGE_NAME,
+                    RabbitConfig.ROUTING_KEY_GUIAS,
+                    mensaje);
+            log.info("Guía {} publicada en {}", guia.getNumeroGuia(), RabbitConfig.COLA_GUIAS);
+        } catch (Exception e) {
+            log.error("Fallo al publicar la guía {} en {}. Reenviando a {}",
+                    guia.getNumeroGuia(), RabbitConfig.COLA_GUIAS, RabbitConfig.COLA_GUIAS_ERROR, e);
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.EXCHANGE_NAME,
+                    RabbitConfig.ROUTING_KEY_ERROR,
+                    mensaje);
+        }
     }
 
     @Override

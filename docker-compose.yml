@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  rabbitmq-despacho:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq-despacho
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    networks:
+      - despacho-net
+
+  despacho-app:
+    build: .
+    container_name: despacho-app
+    ports:
+      - "8081:8081"
+    depends_on:
+      - rabbitmq-despacho
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq-despacho
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin123
+    networks:
+      - despacho-net
+
+networks:
+  despacho-net:
+    driver: bridge
