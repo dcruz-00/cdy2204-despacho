@@ -1,5 +1,8 @@
 package com.transportista.despacho.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -27,12 +30,12 @@ public class RabbitConfig {
 
     @Bean
     public Queue colaGuias() {
-        return new Queue(COLA_GUIAS, true); // durable
+        return new Queue(COLA_GUIAS, true);
     }
 
     @Bean
     public Queue colaGuiasError() {
-        return new Queue(COLA_GUIAS_ERROR, true); // durable
+        return new Queue(COLA_GUIAS_ERROR, true);
     }
 
     @Bean
@@ -46,7 +49,11 @@ public class RabbitConfig {
     }
 
     @Bean
+    @SuppressWarnings("deprecation")
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return new Jackson2JsonMessageConverter(objectMapper);
     }
 }
